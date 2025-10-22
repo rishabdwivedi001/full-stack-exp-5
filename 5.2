@@ -1,0 +1,203 @@
+"scripts": {
+  "start": "nodemon server.js"
+}
+const mongoose = require('mongoose');
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect('mongodb://127.0.0.1:27017/studentmvc', {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log('MongoDB Connected');
+  } catch (error) {
+    console.error('Database connection error:', error);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDB;
+const mongoose = require('mongoose');
+
+const studentSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  rollNumber: { type: String, required: true, unique: true },
+  department: { type: String, required: true },
+  year: { type: Number, required: true },
+}, { timestamps: true });
+
+module.exports = mongoose.model('Student', studentSchema);
+
+const Student = require('../models/studentModel');
+
+// @desc Get all students
+exports.getAllStudents = async (req, res) => {
+  try {
+    const students = await Student.find();
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// @desc Get single student
+exports.getStudentById = async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    res.json(student);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// @desc Create new student
+exports.createStudent = async (req, res) => {
+  try {
+    const student = new Student(req.body);
+    const saved = await student.save();
+    res.status(201).json(saved);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// @desc Update student
+exports.updateStudent = async (req, res) => {
+  try {
+    const updated = await Student.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// @desc Delete student
+exports.deleteStudent = async (req, res) => {
+  try {
+    await Student.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Student deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+const express = require('express');
+const router = express.Router();
+const {
+  getAllStudents,
+  getStudentById,
+  createStudent,
+  updateStudent,
+  deleteStudent
+} = require('../controllers/studentController');
+
+router.get('/', getAllStudents);
+router.get('/:id', getStudentById);
+router.post('/', createStudent);
+router.put('/:id', updateStudent);
+router.delete('/:id', deleteStudent);
+
+module.exports = router;
+const express = require('express');
+const cors = require('cors');
+const connectDB = require('./config/db');
+const studentRoutes = require('./routes/studentRoutes');
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Database Connection
+connectDB();
+
+// Routes
+app.use('/api/students', studentRoutes);
+
+// Start Server
+const PORT = 5000;
+app.listen(PORT, () => console.log(` Server running on port ${PORT}`));
+import axios from 'axios';
+
+const API_URL = 'http://localhost:5000/api/students/';
+
+export const getStudents = () => axios.get(API_URL);
+export const createStudent = (data) => axios.post(API_URL, data);
+export const updateStudent = (id, data) => axios.put(API_URL + id, data);
+export const deleteStudent = (id) => axios.delete(API_URL + id);
+import React, { useEffect, useState } from 'react';
+import { getStudents, createStudent, updateStudent, deleteStudent } from '../services/studentService';
+
+const StudentList = () => {
+  const [students, setStudents] = useState([]);
+  const [form, setForm] = useState({ name: '', rollNumber: '', department: '', year: '' });
+  const [editing, setEditing] = useState(null);
+
+  const fetchStudents = async () => {
+    const res = await getStudents();
+    setStudents(res.data);
+  };
+
+  useEffect(() => { fetchStudents(); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (editing) {
+      await updateStudent(editing, form);
+      setEditing(null);
+    } else {
+      await createStudent(form);
+    }
+    setForm({ name: '', rollNumber: '', department: '', year: '' });
+    fetchStudents();
+  };
+
+  const handleEdit = (student) => {
+    setForm(student);
+    setEditing(student._id);
+  };
+
+  const handleDelete = async (id) => {
+    await deleteStudent(id);
+    fetchStudents();
+  };
+
+  return (
+    <div style={{ maxWidth: 700, margin: 'auto', padding: 20 }}>
+      <h2>🎓 Student Management (MVC + MERN)</h2>
+
+      <form onSubmit={handleSubmit}>
+        <input placeholder="Name" value={form.name} onChange={(e)=>setForm({...form, name:e.target.value})} required />
+        <input placeholder="Roll No" value={form.rollNumber} onChange={(e)=>setForm({...form, rollNumber:e.target.value})} required />
+        <input placeholder="Department" value={form.department} onChange={(e)=>setForm({...form, department:e.target.value})} required />
+        <input placeholder="Year" type="number" value={form.year} onChange={(e)=>setForm({...form, year:e.target.value})} required />
+        <button type="submit">{editing ? 'Update' : 'Add'} Student</button>
+      </form>
+
+      <ul>
+        {students.map(s => (
+          <li key={s._id}>
+            {s.name} ({s.rollNumber}) - {s.department}, Year {s.year}
+            <button onClick={() => handleEdit(s)}>Edit</button>
+            <button onClick={() => handleDelete(s._id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default StudentList;
+import React from 'react';
+import StudentList from './components/StudentList';
+
+function App() {
+  return (
+    <div>
+      <StudentList />
+    </div>
+  );
+}
+
+export default App;
