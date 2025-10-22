@@ -1,0 +1,124 @@
+
+const mongoose = require('mongoose');
+
+const productSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  brand: { type: String, required: true },
+  category: {
+    main: { type: String, required: true },
+    sub: { type: String }
+  },
+  price: {
+    base: { type: Number, required: true },
+    discount: { type: Number, default: 0 },
+    final: { type: Number, required: true }
+  },
+  description: { type: String },
+  specifications: {
+    material: String,
+    dimensions: {
+      width: Number,
+      height: Number,
+      depth: Number
+    },
+    weight: Number
+  },
+  variants: [{
+    color: String,
+    size: String,
+    images: [String],
+    sku: String,
+    stock: Number
+  }],
+  warehouses: [{
+    name: String,
+    location: String,
+    quantity: Number
+  }],
+  reviews: [{
+    user: String,
+    rating: { type: Number, min: 1, max: 5 },
+    comment: String,
+    date: { type: Date, default: Date.now }
+  }]
+}, { timestamps: true });
+
+module.exports = mongoose.model('Product', productSchema);
+const mongoose = require('mongoose');
+const Product = require('./productModel');
+
+mongoose.connect('mongodb://127.0.0.1:27017/ecommerce', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log("✅ MongoDB Connected"))
+.catch(err => console.error(err));
+
+async function createProduct() {
+  const product = new Product({
+    name: "Wireless Bluetooth Headphones",
+    brand: "Sony",
+    category: {
+      main: "Electronics",
+      sub: "Headphones"
+    },
+    price: {
+      base: 7999,
+      discount: 10,
+      final: 7199
+    },
+    description: "Noise-cancelling over-ear headphones with long battery life.",
+    specifications: {
+      material: "Plastic + Metal",
+      dimensions: { width: 15, height: 20, depth: 5 },
+      weight: 250
+    },
+    variants: [
+      {
+        color: "Black",
+        size: "Standard",
+        images: [
+          "https://example.com/images/headphones-black-front.jpg",
+          "https://example.com/images/headphones-black-side.jpg"
+        ],
+        sku: "SONY-BT-BLK",
+        stock: 50
+      },
+      {
+        color: "Blue",
+        size: "Standard",
+        images: [
+          "https://example.com/images/headphones-blue.jpg"
+        ],
+        sku: "SONY-BT-BLU",
+        stock: 30
+      }
+    ],
+    warehouses: [
+      { name: "Warehouse A", location: "Delhi", quantity: 40 },
+      { name: "Warehouse B", location: "Mumbai", quantity: 40 }
+    ],
+    reviews: [
+      { user: "Aman", rating: 5, comment: "Amazing sound quality!" },
+      { user: "Priya", rating: 4, comment: "Battery life could be better." }
+    ]
+  });
+
+  const result = await product.save();
+  console.log("Product Created:", result);
+}
+
+createProduct();
+const Product = require('./productModel');
+
+// Find all products under Electronics category
+const electronics = await Product.find({ "category.main": "Electronics" });
+
+// Find products with stock in Mumbai warehouse
+const mumbaiStock = await Product.find({ "warehouses.location": "Mumbai" });
+
+// Add a new review dynamically
+await Product.updateOne(
+  { name: "Wireless Bluetooth Headphones" },
+  { $push: { reviews: { user: "Raj", rating: 5, comment: "Loved the noise cancellation!" } } }
+);
